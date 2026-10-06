@@ -1,9 +1,10 @@
 {
   "outputDirectory": "public",
-  "redirects": [{ "source": "/", "destination": "/app/", "permanent": false }],
+  "redirects": [{ "source": "/", "destination": "/app", "permanent": false }],
   "rewrites": [
     { "source": "/app", "destination": "/api/page" },
-    { "source": "/app/:path*", "destination": "/api/page?p=:path*" }
+    { "source": "/app/", "destination": "/api/page" },
+    { "source": "/app/:path+", "destination": "/api/page?p=:path+" }
   ],
   "functions": { "api/page.js": { "includeFiles": "content/**" } },
   "headers": [{ "source": "/(.*)", "headers": [
