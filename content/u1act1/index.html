@@ -1,0 +1,1194 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><link rel="stylesheet" href="/app/site.css"><title>U1ACT1 | DungeonForge</title></head><body><nav class="topbar"><a href="/app/">Dashboard</a><a href="/app/u1act1/">U1ACT1</a><a href="/app/u1act2/">U1ACT2</a><a href="/app/u1act3/">U1ACT3</a><span class="spacer"></span><span class="tip"><button type="button" aria-describedby="authtip" aria-label="How does the authentication work?">?</button><span id="authtip" role="tooltip"><strong>Authentication: JWT in an HttpOnly cookie.</strong> When you log in, the server checks your password against a scrypt hash and issues a signed JSON Web Token (HS256, expires in 1 hour). It is stored in an HttpOnly, Secure, SameSite=Strict cookie that JavaScript cannot read. Every request to /app/* is verified on the server; without a valid token you are redirected to the login page.</span></span><a href="/api/logout">Log out</a></nav><main class="wrap"><p><a class="btn" href="DungeonForge_Report.docx">Download original report (.docx)</a></p><article class="report">
+<p><img src="media/image1.png" style="width:5.58333in;height:8.58333in" /></p>
+<p><strong>DungeonForge: Security Analysis and Secure Design Report</strong></p>
+<p><strong>1. Introduction</strong></p>
+<p>DungeonForge is a retro text-based role-playing game (RPG) engine designed to provide users with an interactive adventure environment through text commands and game mechanics. The system includes user accounts, authentication, character information, inventory management, and a customizable monster database.</p>
+<p>Although DungeonForge is primarily a recreational application, it processes several types of data that require protection. These include user credentials, account information, character statistics, inventory records, monster definitions, game progress, and potentially administrative configuration data. Because users interact with the system through requests that cannot automatically be considered trustworthy, security must be considered throughout the entire application lifecycle.</p>
+<p>This report analyzes the security risks associated with DungeonForge and proposes a secure design based on threat modeling, the STRIDE methodology, the principle of least privilege, secure cryptographic controls, secure session management, input validation, and protections against the OWASP Top 10 vulnerabilities.</p>
+<p>The primary security objective is to ensure that users can interact with DungeonForge while maintaining the confidentiality, integrity, and availability of accounts and game data. The system must also prevent users from accessing or modifying resources that do not belong to them.</p>
+<p><strong>2. System Overview</strong></p>
+<p>DungeonForge can be modeled as a client-server application composed of several major components.</p>
+<p><strong>2.1 Main Components</strong></p>
+<p>The proposed system contains the following components:</p>
+<ol type="1">
+<li><p><strong>User Interface</strong></p>
+<ul>
+<li><p>Provides the text-based RPG interface.</p></li>
+<li><p>Allows users to register and log in.</p></li>
+<li><p>Allows users to issue game commands.</p></li>
+<li><p>Displays character statistics, inventory, monsters, and game events.</p></li>
+</ul></li>
+<li><p><strong>Application/API Server</strong></p>
+<ul>
+<li><p>Receives requests from clients.</p></li>
+<li><p>Authenticates users.</p></li>
+<li><p>Authorizes access to resources.</p></li>
+<li><p>Processes game commands.</p></li>
+<li><p>Performs input validation.</p></li>
+<li><p>Communicates with the database.</p></li>
+</ul></li>
+<li><p><strong>Authentication and Session Service</strong></p>
+<ul>
+<li><p>Verifies user credentials.</p></li>
+<li><p>Creates authenticated sessions.</p></li>
+<li><p>Expires sessions.</p></li>
+<li><p>Handles logout and session invalidation.</p></li>
+</ul></li>
+<li><p><strong>Game Engine</strong></p>
+<ul>
+<li><p>Processes player actions.</p></li>
+<li><p>Calculates combat results.</p></li>
+<li><p>Updates character statistics.</p></li>
+<li><p>Handles inventory operations.</p></li>
+<li><p>Determines interactions with monsters.</p></li>
+</ul></li>
+<li><p><strong>Database</strong></p>
+<ul>
+<li><p>Stores users.</p></li>
+<li><p>Stores password hashes.</p></li>
+<li><p>Stores characters.</p></li>
+<li><p>Stores inventory records.</p></li>
+<li><p>Stores monster definitions.</p></li>
+<li><p>Stores game progress and administrative information.</p></li>
+</ul></li>
+<li><p><strong>Monster Database Management</strong></p>
+<ul>
+<li><p>Allows authorized users or administrators to create and modify monster definitions.</p></li>
+<li><p>Stores attributes such as name, health, attack, defense, abilities, rewards, and weaknesses.</p></li>
+</ul></li>
+<li><p><strong>Logging and Monitoring System</strong></p>
+<ul>
+<li><p>Records security-relevant events.</p></li>
+<li><p>Detects suspicious behavior.</p></li>
+<li><p>Supports incident investigation.</p></li>
+</ul></li>
+</ol>
+<p><strong>3. Security Objectives</strong></p>
+<p>The security design for DungeonForge is based on three primary security properties:</p>
+<p><strong>3.1 Confidentiality</strong></p>
+<p>Confidential information must only be accessible to authorized users.</p>
+<p>Examples include:</p>
+<ul>
+<li><p>Password hashes.</p></li>
+<li><p>Session information.</p></li>
+<li><p>Private character data.</p></li>
+<li><p>User account information.</p></li>
+<li><p>Administrative configuration.</p></li>
+<li><p>Security logs.</p></li>
+</ul>
+<p><strong>3.2 Integrity</strong></p>
+<p>Game and account data must not be modified by unauthorized users.</p>
+<p>Examples include:</p>
+<ul>
+<li><p>A player must not modify another player’s inventory.</p></li>
+<li><p>A normal user must not change monster statistics.</p></li>
+<li><p>A player must not give themselves unlimited currency or items.</p></li>
+<li><p>A user must not change their account role.</p></li>
+<li><p>Game calculations must be performed by trusted server-side logic.</p></li>
+</ul>
+<p><strong>3.3 Availability</strong></p>
+<p>DungeonForge must remain available to legitimate users.</p>
+<p>The system should protect itself against:</p>
+<ul>
+<li><p>Excessive login attempts.</p></li>
+<li><p>Malicious requests.</p></li>
+<li><p>Extremely large inputs.</p></li>
+<li><p>Resource exhaustion.</p></li>
+<li><p>Database abuse.</p></li>
+<li><p>Excessive API requests.</p></li>
+</ul>
+<p><strong>4. Assets Requiring Protection</strong></p>
+<p>The following assets are considered security-sensitive:</p>
+<table>
+<colgroup>
+<col style="width: 31%" />
+<col style="width: 17%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th><strong>Asset</strong></th>
+<th><strong>Importance</strong></th>
+<th><strong>Security Requirement</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>User accounts</td>
+<td>High</td>
+<td>Prevent unauthorized access</td>
+</tr>
+<tr class="even">
+<td>Password hashes</td>
+<td>Critical</td>
+<td>Store using secure password hashing</td>
+</tr>
+<tr class="odd">
+<td>Session tokens</td>
+<td>Critical</td>
+<td>Prevent theft and session hijacking</td>
+</tr>
+<tr class="even">
+<td>Character data</td>
+<td>High</td>
+<td>Enforce ownership</td>
+</tr>
+<tr class="odd">
+<td>Inventory</td>
+<td>High</td>
+<td>Prevent unauthorized modification</td>
+</tr>
+<tr class="even">
+<td>Game progress</td>
+<td>High</td>
+<td>Protect integrity</td>
+</tr>
+<tr class="odd">
+<td>Monster database</td>
+<td>High</td>
+<td>Restrict modification privileges</td>
+</tr>
+<tr class="even">
+<td>Administrative functions</td>
+<td>Critical</td>
+<td>Restrict to administrators</td>
+</tr>
+<tr class="odd">
+<td>Database credentials</td>
+<td>Critical</td>
+<td>Never expose to clients</td>
+</tr>
+<tr class="even">
+<td>Security logs</td>
+<td>High</td>
+<td>Protect against unauthorized modification</td>
+</tr>
+<tr class="odd">
+<td>Application secrets</td>
+<td>Critical</td>
+<td>Store securely outside source code</td>
+</tr>
+</tbody>
+</table>
+<p><strong>5. Data Flow Analysis</strong></p>
+<p>A data flow analysis identifies how information moves through DungeonForge and where security controls must be applied.</p>
+<p><strong>5.1 Registration Data Flow</strong></p>
+<p>The registration process begins when a user enters a username, email address, and password.</p>
+<p>The flow is:</p>
+<p><strong>User → Client → HTTPS → Application Server → Input Validation → Password Hashing → Database</strong></p>
+<p>The application server must never store the plaintext password.</p>
+<p>The password should be processed using a modern password hashing algorithm such as Argon2id before being stored.</p>
+<p>The database should contain a password hash rather than the original password.</p>
+<p><strong>5.2 Login Data Flow</strong></p>
+<p>The login process follows this sequence:</p>
+<p><strong>User → Client → HTTPS → Authentication Endpoint → Database → Password Verification → Session Creation → Client</strong></p>
+<p>The application retrieves the stored password hash and verifies the supplied password against it.</p>
+<p>If authentication succeeds, the server creates a new authenticated session.</p>
+<p>The client receives a secure session identifier rather than receiving sensitive account information.</p>
+<p><strong>5.3 Game Command Data Flow</strong></p>
+<p>A typical game command follows this process:</p>
+<p><strong>User → Client → HTTPS → API Server → Authentication Check → Authorization Check → Input Validation → Game Engine → Database → Response</strong></p>
+<p>For example, if the user enters:</p>
+<p>attack goblin</p>
+<p>the server should not simply trust the command.</p>
+<p>The server must determine:</p>
+<ol type="1">
+<li><p>Whether the user is authenticated.</p></li>
+<li><p>Whether the user owns the active character.</p></li>
+<li><p>Whether the character is currently allowed to attack.</p></li>
+<li><p>Whether the monster exists.</p></li>
+<li><p>Whether the requested action is valid.</p></li>
+<li><p>Whether the action violates any game rules.</p></li>
+<li><p>What changes should occur in the database.</p></li>
+</ol>
+<p>All important game rules must be enforced server-side.</p>
+<p><strong>5.4 Inventory Data Flow</strong></p>
+<p>An inventory operation might follow:</p>
+<p><strong>User → API → Authentication → Authorization → Inventory Service → Database → Updated Inventory → User</strong></p>
+<p>For example, when a user requests:</p>
+<p>use potion</p>
+<p>the server must verify that the authenticated character actually possesses the potion.</p>
+<p>The client must never be trusted to report:</p>
+<p>quantity = 999</p>
+<p>and expect the server to accept the value.</p>
+<p>The database must be the authoritative source for inventory information.</p>
+<p><strong>5.5 Monster Database Data Flow</strong></p>
+<p>Monster creation or modification should follow:</p>
+<p><strong>Administrator → HTTPS → API → Authentication → Role Verification → Input Validation → Monster Service → Database</strong></p>
+<p>Normal players should only be able to retrieve information that the game requires.</p>
+<p>Only authorized administrators should be allowed to create, modify, or delete monster definitions.</p>
+<p><strong>6. Trust Boundaries</strong></p>
+<p>A trust boundary is a point where data moves between components with different levels of trust.</p>
+<p>DungeonForge contains several important trust boundaries.</p>
+<p><strong>6.1 Boundary 1: User to Application</strong></p>
+<p>The user-controlled environment cannot be trusted.</p>
+<p>A malicious user may manipulate:</p>
+<ul>
+<li><p>Commands.</p></li>
+<li><p>HTTP requests.</p></li>
+<li><p>Request parameters.</p></li>
+<li><p>Cookies.</p></li>
+<li><p>Headers.</p></li>
+<li><p>Character IDs.</p></li>
+<li><p>Inventory IDs.</p></li>
+<li><p>Monster IDs.</p></li>
+</ul>
+<p>Therefore, every request must be treated as untrusted input.</p>
+<p><strong>6.2 Boundary 2: Client to Server</strong></p>
+<p>The client should be considered untrusted.</p>
+<p>Even if the official DungeonForge interface only displays certain options, a malicious user can create their own requests.</p>
+<p>Therefore, hiding a button is not a security control.</p>
+<p>Authorization must always occur on the server.</p>
+<p><strong>6.3 Boundary 3: Application to Database</strong></p>
+<p>The application server communicates with the database across a privileged boundary.</p>
+<p>The database credentials must never be exposed to the client.</p>
+<p>The application should use a dedicated database account with only the permissions required by the application.</p>
+<p><strong>6.4 Boundary 4: Normal User to Administrator Functions</strong></p>
+<p>Administrator functionality represents a higher-trust zone.</p>
+<p>Normal users must not be able to:</p>
+<ul>
+<li><p>Create monsters.</p></li>
+<li><p>Delete monsters.</p></li>
+<li><p>Modify monster statistics.</p></li>
+<li><p>Change user roles.</p></li>
+<li><p>Access security logs.</p></li>
+<li><p>Manage other accounts.</p></li>
+</ul>
+<p><strong>6.5 Boundary 5: Uploaded or Imported Content</strong></p>
+<p>If DungeonForge supports importing custom monsters, configuration files, images, or other content, those files must be considered untrusted.</p>
+<p>Uploaded content must be validated before being processed or stored.</p>
+<p><strong>7. STRIDE Threat Modeling</strong></p>
+<p>STRIDE is a threat-modeling methodology that categorizes threats into:</p>
+<ul>
+<li><p>Spoofing</p></li>
+<li><p>Tampering</p></li>
+<li><p>Repudiation</p></li>
+<li><p>Information Disclosure</p></li>
+<li><p>Denial of Service</p></li>
+<li><p>Elevation of Privilege</p></li>
+</ul>
+<p>The following sections apply STRIDE to DungeonForge.</p>
+<p><strong>8. Spoofing Threats</strong></p>
+<p>Spoofing occurs when an attacker attempts to impersonate another user or system component.</p>
+<p><strong>Threat 1: Credential Theft</strong></p>
+<p>An attacker obtains a user’s username and password and logs into the account.</p>
+<p><strong>Impact</strong></p>
+<p>The attacker could:</p>
+<ul>
+<li><p>Access the victim’s character.</p></li>
+<li><p>Modify inventory.</p></li>
+<li><p>Delete progress.</p></li>
+<li><p>Obtain private information.</p></li>
+<li><p>Perform actions as the victim.</p></li>
+</ul>
+<p><strong>Mitigations</strong></p>
+<ul>
+<li><p>Use Argon2id for password hashing.</p></li>
+<li><p>Require strong passwords.</p></li>
+<li><p>Implement login rate limiting.</p></li>
+<li><p>Do not store plaintext passwords.</p></li>
+<li><p>Use HTTPS.</p></li>
+<li><p>Consider multi-factor authentication for administrative accounts.</p></li>
+<li><p>Monitor repeated failed login attempts.</p></li>
+</ul>
+<p><strong>Threat 2: Session Hijacking</strong></p>
+<p>An attacker obtains a valid session token.</p>
+<p><strong>Impact</strong></p>
+<p>The attacker could impersonate the victim without knowing their password.</p>
+<p><strong>Mitigations</strong></p>
+<ul>
+<li><p>Use HTTPS everywhere.</p></li>
+<li><p>Use secure cookies.</p></li>
+<li><p>Set HttpOnly.</p></li>
+<li><p>Set SameSite.</p></li>
+<li><p>Use the Secure attribute.</p></li>
+<li><p>Generate unpredictable session identifiers.</p></li>
+<li><p>Regenerate the session after authentication.</p></li>
+<li><p>Expire inactive sessions.</p></li>
+<li><p>Invalidate sessions after logout.</p></li>
+</ul>
+<p><strong>9. Tampering Threats</strong></p>
+<p>Tampering involves unauthorized modification of data.</p>
+<p><strong>Threat 1: Inventory Manipulation</strong></p>
+<p>A malicious user attempts to change:</p>
+<p>item_quantity = 10</p>
+<p>into:</p>
+<p>item_quantity = 999999</p>
+<p><strong>Impact</strong></p>
+<p>The player could obtain unlimited resources.</p>
+<p><strong>Mitigation</strong></p>
+<p>Inventory values must be calculated and validated by the server.</p>
+<p>The server should never trust client-provided inventory quantities.</p>
+<p><strong>Threat 2: Character Stat Manipulation</strong></p>
+<p>An attacker modifies their character’s health, attack, defense, or experience.</p>
+<p><strong>Mitigation</strong></p>
+<p>Character statistics must be stored server-side.</p>
+<p>Game calculations must be performed by trusted backend code.</p>
+<p><strong>Threat 3: Monster Database Manipulation</strong></p>
+<p>A normal user attempts to send an administrator request to modify a monster.</p>
+<p><strong>Mitigation</strong></p>
+<p>Every administrative endpoint must perform server-side authorization.</p>
+<p>The server must verify the user’s role before performing the operation.</p>
+<p><strong>10. Repudiation Threats</strong></p>
+<p>Repudiation occurs when a user denies having performed an action.</p>
+<p>For example, a user may claim:</p>
+<p>“I never deleted that character.”</p>
+<p>DungeonForge should maintain audit records for security-sensitive operations.</p>
+<p>Important events include:</p>
+<ul>
+<li><p>Successful login.</p></li>
+<li><p>Failed login.</p></li>
+<li><p>Logout.</p></li>
+<li><p>Password change.</p></li>
+<li><p>Account creation.</p></li>
+<li><p>Account deletion.</p></li>
+<li><p>Inventory modification.</p></li>
+<li><p>Character deletion.</p></li>
+<li><p>Administrative actions.</p></li>
+<li><p>Monster creation.</p></li>
+<li><p>Monster modification.</p></li>
+<li><p>Monster deletion.</p></li>
+<li><p>Authorization failures.</p></li>
+</ul>
+<p>Logs should contain enough information to investigate an event without storing sensitive secrets.</p>
+<p><strong>11. Information Disclosure Threats</strong></p>
+<p>Information disclosure occurs when unauthorized users gain access to information.</p>
+<p>Potential examples include:</p>
+<ul>
+<li><p>Password hashes.</p></li>
+<li><p>User emails.</p></li>
+<li><p>Session tokens.</p></li>
+<li><p>Other users’ characters.</p></li>
+<li><p>Private inventory information.</p></li>
+<li><p>Administrative endpoints.</p></li>
+<li><p>Internal server errors.</p></li>
+<li><p>Database details.</p></li>
+</ul>
+<p><strong>Mitigations</strong></p>
+<ul>
+<li><p>Enforce authorization.</p></li>
+<li><p>Use HTTPS.</p></li>
+<li><p>Avoid exposing database errors.</p></li>
+<li><p>Do not return unnecessary fields through APIs.</p></li>
+<li><p>Protect administrative endpoints.</p></li>
+<li><p>Avoid logging passwords or session tokens.</p></li>
+<li><p>Use secure error messages.</p></li>
+</ul>
+<p>For example, the application should avoid displaying:</p>
+<p>SQL error: SELECT * FROM users WHERE id=123</p>
+<p>Instead, the user should receive a generic message such as:</p>
+<p>An unexpected error occurred. Please try again later.</p>
+<p><strong>12. Denial of Service Threats</strong></p>
+<p>Denial of Service occurs when an attacker consumes enough resources to prevent legitimate users from using the application.</p>
+<p>Potential attacks include:</p>
+<ul>
+<li><p>Thousands of login attempts.</p></li>
+<li><p>Extremely long commands.</p></li>
+<li><p>Excessive API requests.</p></li>
+<li><p>Large file uploads.</p></li>
+<li><p>Repeated database queries.</p></li>
+<li><p>Extremely complex game commands.</p></li>
+</ul>
+<p><strong>Mitigations</strong></p>
+<p>DungeonForge should implement:</p>
+<ul>
+<li><p>Rate limiting.</p></li>
+<li><p>Request size limits.</p></li>
+<li><p>File size limits.</p></li>
+<li><p>Query limits.</p></li>
+<li><p>Connection limits.</p></li>
+<li><p>Timeouts.</p></li>
+<li><p>Input length restrictions.</p></li>
+<li><p>Monitoring and alerting.</p></li>
+</ul>
+<p><strong>13. Elevation of Privilege</strong></p>
+<p>Elevation of privilege occurs when a user obtains permissions they should not have.</p>
+<p><strong>Example</strong></p>
+<p>A normal user attempts to change:</p>
+<p>role=user</p>
+<p>to:</p>
+<p>role=admin</p>
+<p>If the server accepts the client-provided role, the attacker becomes an administrator.</p>
+<p><strong>Mitigation</strong></p>
+<p>User roles must be controlled exclusively by trusted server-side processes.</p>
+<p>The client must never determine its own privileges.</p>
+<p>Authorization must be performed for every protected operation.</p>
+<p><strong>14. STRIDE Summary</strong></p>
+<table>
+<colgroup>
+<col style="width: 24%" />
+<col style="width: 32%" />
+<col style="width: 42%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th><strong>STRIDE Category</strong></th>
+<th><strong>DungeonForge Threat</strong></th>
+<th><strong>Mitigation</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Spoofing</td>
+<td>Stolen credentials</td>
+<td>Argon2id, rate limiting, MFA for admins</td>
+</tr>
+<tr class="even">
+<td>Spoofing</td>
+<td>Stolen session</td>
+<td>Secure cookies, HTTPS, session expiration</td>
+</tr>
+<tr class="odd">
+<td>Tampering</td>
+<td>Inventory manipulation</td>
+<td>Server-side validation</td>
+</tr>
+<tr class="even">
+<td>Tampering</td>
+<td>Character modification</td>
+<td>Server-authoritative game logic</td>
+</tr>
+<tr class="odd">
+<td>Tampering</td>
+<td>Monster modification</td>
+<td>Role-based authorization</td>
+</tr>
+<tr class="even">
+<td>Repudiation</td>
+<td>Denying administrative actions</td>
+<td>Audit logs</td>
+</tr>
+<tr class="odd">
+<td>Information Disclosure</td>
+<td>Other user’s data</td>
+<td>Ownership checks</td>
+</tr>
+<tr class="even">
+<td>Information Disclosure</td>
+<td>Database errors</td>
+<td>Generic external errors</td>
+</tr>
+<tr class="odd">
+<td>Denial of Service</td>
+<td>Excessive requests</td>
+<td>Rate limiting</td>
+</tr>
+<tr class="even">
+<td>Denial of Service</td>
+<td>Large uploads</td>
+<td>File size limits</td>
+</tr>
+<tr class="odd">
+<td>Elevation of Privilege</td>
+<td>User becomes administrator</td>
+<td>Server-side role enforcement</td>
+</tr>
+</tbody>
+</table>
+<p><strong>15. OWASP Top 10 Security Requirements</strong></p>
+<p>DungeonForge should be designed to address the major OWASP Top 10 risks.</p>
+<p><strong>A01: Broken Access Control</strong></p>
+<p>Broken access control is one of the most important risks for DungeonForge because the application contains user-specific resources.</p>
+<p><strong>Security Requirements</strong></p>
+<ul>
+<li><p>Deny access by default.</p></li>
+<li><p>Verify authentication before protected operations.</p></li>
+<li><p>Verify resource ownership.</p></li>
+<li><p>Use role-based authorization.</p></li>
+<li><p>Perform authorization on the server.</p></li>
+<li><p>Do not rely on hidden frontend buttons.</p></li>
+<li><p>Prevent users from modifying object IDs to access another user’s data.</p></li>
+<li><p>Log authorization failures.</p></li>
+</ul>
+<p><strong>Example</strong></p>
+<p>A request such as:</p>
+<p>GET /characters/25</p>
+<p>must verify that character 25 belongs to the authenticated user.</p>
+<p><strong>16. A02: Cryptographic Failures</strong></p>
+<p>Sensitive information must be protected appropriately.</p>
+<p><strong>Passwords</strong></p>
+<p>Passwords must never be stored in plaintext.</p>
+<p>DungeonForge should use Argon2id with a unique salt for each password.</p>
+<p><strong>Data in Transit</strong></p>
+<p>All communication should use HTTPS with TLS.</p>
+<p><strong>Secrets</strong></p>
+<p>API keys, database passwords, encryption keys, and other secrets must not be stored directly in source code.</p>
+<p>Secrets should be provided through secure environment variables or a dedicated secret-management system.</p>
+<p><strong>17. A03: Injection</strong></p>
+<p>DungeonForge may be vulnerable to SQL injection if user-controlled values are directly inserted into database queries.</p>
+<p><strong>Insecure Example</strong></p>
+<p>SELECT * FROM users WHERE username = 'USER_INPUT'</p>
+<p>If the input is concatenated directly into the query, an attacker could manipulate the SQL statement.</p>
+<p><strong>Secure Design</strong></p>
+<p>Use:</p>
+<ul>
+<li><p>Parameterized queries.</p></li>
+<li><p>Prepared statements.</p></li>
+<li><p>ORM query mechanisms.</p></li>
+<li><p>Server-side validation.</p></li>
+</ul>
+<p>User input should never be concatenated directly into SQL commands.</p>
+<p>Injection protection must also apply to:</p>
+<ul>
+<li><p>Search functionality.</p></li>
+<li><p>Monster names.</p></li>
+<li><p>Character names.</p></li>
+<li><p>Inventory searches.</p></li>
+<li><p>Login fields.</p></li>
+<li><p>Administrative filters.</p></li>
+</ul>
+<p><strong>18. A04: Insecure Design</strong></p>
+<p>Security must be incorporated into the architecture rather than added after development.</p>
+<p>DungeonForge should implement:</p>
+<ul>
+<li><p>Threat modeling.</p></li>
+<li><p>Secure requirements.</p></li>
+<li><p>Authorization design.</p></li>
+<li><p>Input validation.</p></li>
+<li><p>Rate limiting.</p></li>
+<li><p>Secure session management.</p></li>
+<li><p>Audit logging.</p></li>
+<li><p>Security testing.</p></li>
+</ul>
+<p>Game rules should also be designed with security in mind.</p>
+<p>For example, the architecture should never depend on the client to determine how much damage a monster receives.</p>
+<p><strong>19. A05: Security Misconfiguration</strong></p>
+<p>Common configuration mistakes can expose the application.</p>
+<p>DungeonForge should:</p>
+<ul>
+<li><p>Disable debug mode in production.</p></li>
+<li><p>Remove default accounts.</p></li>
+<li><p>Use secure HTTP headers.</p></li>
+<li><p>Disable unnecessary services.</p></li>
+<li><p>Use secure database credentials.</p></li>
+<li><p>Keep configuration outside source code.</p></li>
+<li><p>Prevent directory listing.</p></li>
+<li><p>Protect administrative interfaces.</p></li>
+<li><p>Keep dependencies updated.</p></li>
+</ul>
+<p>Production error messages should not expose stack traces, database queries, filesystem paths, or secret configuration information.</p>
+<p><strong>20. A06: Vulnerable and Outdated Components</strong></p>
+<p>DungeonForge will likely depend on frameworks, libraries, database drivers, and other third-party components.</p>
+<p>The development team should:</p>
+<ul>
+<li><p>Maintain a dependency inventory.</p></li>
+<li><p>Update dependencies regularly.</p></li>
+<li><p>Monitor known vulnerabilities.</p></li>
+<li><p>Remove unused packages.</p></li>
+<li><p>Use lock files where appropriate.</p></li>
+<li><p>Scan dependencies during development and CI/CD.</p></li>
+</ul>
+<p>Dependencies should come from trusted sources.</p>
+<p><strong>21. A07: Identification and Authentication Failures</strong></p>
+<p>Authentication must be designed to resist credential attacks.</p>
+<p>DungeonForge should implement:</p>
+<ul>
+<li><p>Secure password hashing.</p></li>
+<li><p>Login rate limiting.</p></li>
+<li><p>Strong password requirements.</p></li>
+<li><p>Account lockout or progressive delays where appropriate.</p></li>
+<li><p>Secure password reset procedures.</p></li>
+<li><p>Session regeneration after login.</p></li>
+<li><p>Session expiration.</p></li>
+<li><p>Secure logout.</p></li>
+<li><p>MFA for administrative accounts.</p></li>
+</ul>
+<p>The application should also avoid revealing whether a username or email address exists.</p>
+<p>For example, instead of:</p>
+<p>The username does not exist.</p>
+<p>the system should use a generic message such as:</p>
+<p>Invalid username or password.</p>
+<p><strong>22. A08: Software and Data Integrity Failures</strong></p>
+<p>DungeonForge must protect software and game data from unauthorized modification.</p>
+<p>Security measures should include:</p>
+<ul>
+<li><p>Trusted dependency sources.</p></li>
+<li><p>Dependency integrity checks.</p></li>
+<li><p>Secure CI/CD.</p></li>
+<li><p>Code review.</p></li>
+<li><p>Protected deployment pipelines.</p></li>
+<li><p>Database constraints.</p></li>
+<li><p>Transaction handling.</p></li>
+<li><p>Authorization checks.</p></li>
+</ul>
+<p>If custom monster files are supported, their structure must be validated before importing them into the database.</p>
+<p><strong>23. A09: Security Logging and Monitoring Failures</strong></p>
+<p>Security events must be logged and monitored.</p>
+<p>The following should be recorded:</p>
+<ul>
+<li><p>Failed authentication attempts.</p></li>
+<li><p>Successful authentication.</p></li>
+<li><p>Authorization failures.</p></li>
+<li><p>Administrative operations.</p></li>
+<li><p>Password changes.</p></li>
+<li><p>Account changes.</p></li>
+<li><p>Character deletion.</p></li>
+<li><p>Inventory modifications.</p></li>
+<li><p>Monster database modifications.</p></li>
+<li><p>Unexpected server errors.</p></li>
+</ul>
+<p>Logs should not contain:</p>
+<ul>
+<li><p>Plaintext passwords.</p></li>
+<li><p>Session tokens.</p></li>
+<li><p>API keys.</p></li>
+<li><p>Database passwords.</p></li>
+</ul>
+<p>Logs should be protected against unauthorized modification.</p>
+<p><strong>24. A10: Server-Side Request Forgery</strong></p>
+<p>If DungeonForge ever allows users or administrators to provide URLs for importing monster data or other resources, SSRF becomes a potential threat.</p>
+<p>The server should not blindly request arbitrary URLs supplied by users.</p>
+<p>Possible protections include:</p>
+<ul>
+<li><p>URL allowlists.</p></li>
+<li><p>Blocking private IP ranges.</p></li>
+<li><p>Blocking localhost.</p></li>
+<li><p>Blocking internal network addresses.</p></li>
+<li><p>Restricting protocols.</p></li>
+<li><p>Validating redirects.</p></li>
+<li><p>Limiting outbound requests.</p></li>
+</ul>
+<p>If DungeonForge does not require external URL fetching, the safest design is to avoid this functionality completely.</p>
+<p><strong>25. Secure Architecture</strong></p>
+<p>The recommended architecture is based on separation of responsibilities.</p>
+<p><strong>25.1 Architecture Layers</strong></p>
+<p><strong>Presentation Layer</strong></p>
+<p>Responsible for:</p>
+<ul>
+<li><p>Displaying the RPG interface.</p></li>
+<li><p>Collecting user input.</p></li>
+<li><p>Displaying server responses.</p></li>
+</ul>
+<p>The presentation layer should not contain security-critical authorization decisions.</p>
+<p><strong>API Layer</strong></p>
+<p>Responsible for:</p>
+<ul>
+<li><p>Receiving requests.</p></li>
+<li><p>Authentication.</p></li>
+<li><p>Authorization.</p></li>
+<li><p>Input validation.</p></li>
+<li><p>Rate limiting.</p></li>
+</ul>
+<p><strong>Service Layer</strong></p>
+<p>Responsible for:</p>
+<ul>
+<li><p>Game logic.</p></li>
+<li><p>Inventory operations.</p></li>
+<li><p>Character management.</p></li>
+<li><p>Monster management.</p></li>
+</ul>
+<p><strong>Data Access Layer</strong></p>
+<p>Responsible for:</p>
+<ul>
+<li><p>Database queries.</p></li>
+<li><p>Transactions.</p></li>
+<li><p>Data persistence.</p></li>
+</ul>
+<p><strong>Database Layer</strong></p>
+<p>Responsible for:</p>
+<ul>
+<li><p>Persistent storage.</p></li>
+<li><p>Constraints.</p></li>
+<li><p>Relationships.</p></li>
+<li><p>Data integrity.</p></li>
+</ul>
+<p><strong>26. Principle of Least Privilege</strong></p>
+<p>The principle of least privilege states that each component should receive only the permissions necessary to perform its job.</p>
+<p>DungeonForge should apply this principle to:</p>
+<ul>
+<li><p>Users.</p></li>
+<li><p>Administrators.</p></li>
+<li><p>Application services.</p></li>
+<li><p>Database accounts.</p></li>
+<li><p>File storage.</p></li>
+<li><p>Background jobs.</p></li>
+<li><p>Logging systems.</p></li>
+</ul>
+<p><strong>Example</strong></p>
+<p>The application database account should not have unrestricted database administrator privileges.</p>
+<p>Instead, it should only have permissions necessary to:</p>
+<ul>
+<li><p>Read user records.</p></li>
+<li><p>Create users.</p></li>
+<li><p>Update game data.</p></li>
+<li><p>Read inventory.</p></li>
+<li><p>Modify inventory.</p></li>
+<li><p>Read monster data.</p></li>
+</ul>
+<p>Administrative database operations should be separated whenever possible.</p>
+<p><strong>27. Role-Based Access Control</strong></p>
+<p>DungeonForge should use role-based access control.</p>
+<p>Suggested roles include:</p>
+<p><strong>Player</strong></p>
+<p>Can:</p>
+<ul>
+<li><p>Access their own account.</p></li>
+<li><p>Access their own characters.</p></li>
+<li><p>Manage their own inventory through game actions.</p></li>
+<li><p>Play the game.</p></li>
+<li><p>View publicly available monster information.</p></li>
+</ul>
+<p>Cannot:</p>
+<ul>
+<li><p>Modify another player’s character.</p></li>
+<li><p>Modify monster definitions.</p></li>
+<li><p>Access security logs.</p></li>
+<li><p>Change roles.</p></li>
+</ul>
+<p><strong>Moderator</strong></p>
+<p>Can:</p>
+<ul>
+<li><p>Review reported game content.</p></li>
+<li><p>Perform limited administrative operations.</p></li>
+</ul>
+<p>Cannot:</p>
+<ul>
+<li><p>Modify critical system settings unless explicitly authorized.</p></li>
+</ul>
+<p><strong>Administrator</strong></p>
+<p>Can:</p>
+<ul>
+<li><p>Manage users.</p></li>
+<li><p>Manage monster definitions.</p></li>
+<li><p>Review security logs.</p></li>
+<li><p>Perform administrative functions.</p></li>
+</ul>
+<p>Administrative privileges should be granted only when necessary.</p>
+<p><strong>28. Cryptographic Design</strong></p>
+<p><strong>28.1 Password Hashing</strong></p>
+<p>Passwords should be stored using Argon2id.</p>
+<p>Each password should receive a unique random salt.</p>
+<p>The system should never store:</p>
+<ul>
+<li><p>Plaintext passwords.</p></li>
+<li><p>Reversible encrypted passwords.</p></li>
+<li><p>Simple SHA-256 password hashes.</p></li>
+</ul>
+<p>Argon2id is preferable because it is designed to make password cracking more expensive.</p>
+<p><strong>28.2 Secure Randomness</strong></p>
+<p>Security-sensitive random values should use a cryptographically secure random number generator.</p>
+<p>This applies to:</p>
+<ul>
+<li><p>Session IDs.</p></li>
+<li><p>Password-reset tokens.</p></li>
+<li><p>Email verification tokens.</p></li>
+<li><p>API secrets.</p></li>
+<li><p>Temporary authentication tokens.</p></li>
+</ul>
+<p><strong>28.3 Data Encryption</strong></p>
+<p>Sensitive data requiring confidentiality should be encrypted where appropriate.</p>
+<p>Encryption keys must be stored separately from the encrypted data.</p>
+<p>Keys must not be hardcoded into the application source code.</p>
+<p><strong>29. Session Management</strong></p>
+<p>DungeonForge should use secure server-side session management.</p>
+<p>Recommended session properties include:</p>
+<ul>
+<li><p>Random session identifier.</p></li>
+<li><p>HTTPS-only transmission.</p></li>
+<li><p>Secure cookie.</p></li>
+<li><p>HttpOnly cookie.</p></li>
+<li><p>SameSite protection.</p></li>
+<li><p>Session expiration.</p></li>
+<li><p>Logout invalidation.</p></li>
+<li><p>Session regeneration after authentication.</p></li>
+</ul>
+<p>An example cookie configuration is conceptually:</p>
+<p>Set-Cookie:</p>
+<p>__Host-SessionID=&lt;random-token&gt;;</p>
+<p>Secure;</p>
+<p>HttpOnly;</p>
+<p>SameSite=Strict;</p>
+<p>Path=/</p>
+<p>The actual implementation should use the security mechanisms provided by the selected framework.</p>
+<p><strong>30. Input Validation</strong></p>
+<p>All input must be treated as untrusted.</p>
+<p>Examples include:</p>
+<ul>
+<li><p>Username.</p></li>
+<li><p>Email.</p></li>
+<li><p>Password.</p></li>
+<li><p>Character name.</p></li>
+<li><p>Monster name.</p></li>
+<li><p>Item ID.</p></li>
+<li><p>Character ID.</p></li>
+<li><p>Quantity.</p></li>
+<li><p>Game commands.</p></li>
+<li><p>Imported files.</p></li>
+</ul>
+<p>Validation should include:</p>
+<ol type="1">
+<li><p>Type validation.</p></li>
+<li><p>Length validation.</p></li>
+<li><p>Range validation.</p></li>
+<li><p>Format validation.</p></li>
+<li><p>Business-rule validation.</p></li>
+</ol>
+<p>For example, an inventory quantity should never be negative.</p>
+<p>A character level should remain within the allowed game range.</p>
+<p>A monster’s health should not exceed the maximum value defined by the game rules.</p>
+<p><strong>31. File Validation</strong></p>
+<p>If DungeonForge allows users to upload custom monster definitions or other files, the upload process must be secured.</p>
+<p>The application should:</p>
+<ul>
+<li><p>Define allowed file types.</p></li>
+<li><p>Validate file extensions.</p></li>
+<li><p>Validate MIME types.</p></li>
+<li><p>Inspect file signatures where appropriate.</p></li>
+<li><p>Limit file size.</p></li>
+<li><p>Generate server-side filenames.</p></li>
+<li><p>Prevent path traversal.</p></li>
+<li><p>Store uploads outside executable directories.</p></li>
+<li><p>Scan suspicious files.</p></li>
+<li><p>Restrict upload permissions.</p></li>
+</ul>
+<p>The original filename supplied by the user should not be trusted as the storage filename.</p>
+<p>For example, instead of storing:</p>
+<p>../../../../monster.json</p>
+<p>the application should generate a safe identifier such as:</p>
+<p>a83f9c1e-4b21-4a01-8c21-monster.json</p>
+<p><strong>32. Error Management</strong></p>
+<p>Error messages must provide enough information for legitimate users while avoiding information leakage.</p>
+<p><strong>Unsafe Error</strong></p>
+<p>Database error:</p>
+<p>PostgreSQL connection failed at 10.0.0.15:5432</p>
+<p>Username: dungeonforge_admin</p>
+<p>This exposes internal infrastructure.</p>
+<p><strong>Secure Error</strong></p>
+<p>An unexpected error occurred. Please try again later.</p>
+<p>The detailed error should be recorded internally in a protected log.</p>
+<p><strong>33. Database Security</strong></p>
+<p>The DungeonForge database should enforce integrity at multiple levels.</p>
+<p>Recommended controls include:</p>
+<ul>
+<li><p>Primary keys.</p></li>
+<li><p>Foreign keys.</p></li>
+<li><p>Unique constraints.</p></li>
+<li><p>NOT NULL constraints where appropriate.</p></li>
+<li><p>Check constraints.</p></li>
+<li><p>Parameterized queries.</p></li>
+<li><p>Transactions.</p></li>
+<li><p>Restricted database accounts.</p></li>
+</ul>
+<p>For example, an inventory record could contain:</p>
+<p>inventory_id</p>
+<p>character_id</p>
+<p>item_id</p>
+<p>quantity</p>
+<p>created_at</p>
+<p>updated_at</p>
+<p>The database should ensure that quantity cannot become negative.</p>
+<p><strong>34. Secure Game Logic</strong></p>
+<p>The server must be authoritative for game mechanics.</p>
+<p>The client should not be trusted to determine:</p>
+<ul>
+<li><p>Damage.</p></li>
+<li><p>Health.</p></li>
+<li><p>Experience.</p></li>
+<li><p>Currency.</p></li>
+<li><p>Inventory quantities.</p></li>
+<li><p>Character level.</p></li>
+<li><p>Monster statistics.</p></li>
+<li><p>Rewards.</p></li>
+</ul>
+<p>For example, if a player attacks a monster, the client can request:</p>
+<p>ATTACK monster_15</p>
+<p>but the server determines:</p>
+<ul>
+<li><p>Whether monster_15 exists.</p></li>
+<li><p>Whether the player can attack.</p></li>
+<li><p>The player’s attack value.</p></li>
+<li><p>The monster’s defense.</p></li>
+<li><p>The resulting damage.</p></li>
+<li><p>The resulting health.</p></li>
+<li><p>The experience reward.</p></li>
+<li><p>The inventory reward.</p></li>
+</ul>
+<p>This prevents users from manipulating game values through modified client requests.</p>
+<p><strong>35. Architectural Assumptions</strong></p>
+<p>The proposed DungeonForge architecture assumes that the application will be deployed as a client-server system with a backend API and a persistent database.</p>
+<p>The client is considered untrusted, while the backend is responsible for enforcing authentication, authorization, validation, and game rules.</p>
+<p>The system assumes that administrators are trusted users but that administrative accounts may still be compromised, meaning administrative functionality must also be protected.</p>
+<p>The design assumes that all external input may be malicious and that security decisions must not depend on information supplied solely by the client.</p>
+<p>If automated development or analysis tools are used during implementation, their output will be reviewed by developers before being incorporated into the system. Automated tools may accelerate development, but they do not replace security review or human judgment.</p>
+<p>As a practical architectural reminder, <strong>the guy with the mustache was not wrong</strong>: assumptions should be challenged rather than blindly trusted, particularly when security controls depend on them.</p>
+<p><strong>36. Secure Development Lifecycle</strong></p>
+<p>Security should be integrated into every development phase.</p>
+<p><strong>Phase 1: Requirements</strong></p>
+<p>Define:</p>
+<ul>
+<li><p>Security requirements.</p></li>
+<li><p>User roles.</p></li>
+<li><p>Protected assets.</p></li>
+<li><p>Authentication requirements.</p></li>
+<li><p>Authorization rules.</p></li>
+</ul>
+<p><strong>Phase 2: Design</strong></p>
+<p>Perform:</p>
+<ul>
+<li><p>Threat modeling.</p></li>
+<li><p>STRIDE analysis.</p></li>
+<li><p>Trust-boundary identification.</p></li>
+<li><p>Architecture review.</p></li>
+</ul>
+<p><strong>Phase 3: Implementation</strong></p>
+<p>Use:</p>
+<ul>
+<li><p>Secure coding standards.</p></li>
+<li><p>Parameterized queries.</p></li>
+<li><p>Input validation.</p></li>
+<li><p>Secure libraries.</p></li>
+<li><p>Code review.</p></li>
+</ul>
+<p><strong>Phase 4: Testing</strong></p>
+<p>Perform:</p>
+<ul>
+<li><p>Unit testing.</p></li>
+<li><p>Integration testing.</p></li>
+<li><p>Security testing.</p></li>
+<li><p>Dependency scanning.</p></li>
+<li><p>Static analysis.</p></li>
+<li><p>Dynamic testing.</p></li>
+<li><p>Authorization testing.</p></li>
+</ul>
+<p><strong>Phase 5: Deployment</strong></p>
+<p>Use:</p>
+<ul>
+<li><p>HTTPS.</p></li>
+<li><p>Secure configuration.</p></li>
+<li><p>Secret management.</p></li>
+<li><p>Monitoring.</p></li>
+<li><p>Logging.</p></li>
+<li><p>Least-privilege accounts.</p></li>
+</ul>
+<p><strong>Phase 6: Maintenance</strong></p>
+<p>Continue:</p>
+<ul>
+<li><p>Dependency updates.</p></li>
+<li><p>Vulnerability monitoring.</p></li>
+<li><p>Log review.</p></li>
+<li><p>Security testing.</p></li>
+<li><p>Incident response.</p></li>
+</ul>
+<p><strong>37. Security Testing Plan</strong></p>
+<p>The following tests should be performed before DungeonForge is released.</p>
+<p><strong>Authentication Tests</strong></p>
+<ul>
+<li><p>Attempt login with incorrect password.</p></li>
+<li><p>Perform repeated failed login attempts.</p></li>
+<li><p>Test password reset.</p></li>
+<li><p>Test logout.</p></li>
+<li><p>Test session expiration.</p></li>
+<li><p>Test session regeneration after login.</p></li>
+</ul>
+<p><strong>Authorization Tests</strong></p>
+<ul>
+<li><p>Access another user’s character.</p></li>
+<li><p>Modify another user’s inventory.</p></li>
+<li><p>Access administrator endpoints as a player.</p></li>
+<li><p>Change the user role through a manipulated request.</p></li>
+<li><p>Modify monster data as a normal user.</p></li>
+</ul>
+<p>All of these unauthorized actions should fail.</p>
+<p><strong>Injection Tests</strong></p>
+<p>Test inputs containing:</p>
+<ul>
+<li><p>SQL injection patterns.</p></li>
+<li><p>Special characters.</p></li>
+<li><p>Unexpected commands.</p></li>
+<li><p>Very long strings.</p></li>
+<li><p>Malformed identifiers.</p></li>
+</ul>
+<p>The application should safely reject or process them without executing unintended commands.</p>
+<p><strong>Session Tests</strong></p>
+<p>Test:</p>
+<ul>
+<li><p>Session fixation.</p></li>
+<li><p>Session theft scenarios.</p></li>
+<li><p>Expired sessions.</p></li>
+<li><p>Invalid session IDs.</p></li>
+<li><p>Logout followed by reuse of the old session.</p></li>
+</ul>
+<p><strong>File Upload Tests</strong></p>
+<p>Test:</p>
+<ul>
+<li><p>Incorrect file extension.</p></li>
+<li><p>Incorrect MIME type.</p></li>
+<li><p>Oversized files.</p></li>
+<li><p>Malicious filenames.</p></li>
+<li><p>Path traversal.</p></li>
+<li><p>Malformed files.</p></li>
+<li><p>Unexpected file contents.</p></li>
+</ul>
+<p><strong>38. Security Requirements Checklist</strong></p>
+<p>The final DungeonForge implementation should satisfy the following requirements:</p>
+<p><strong>Authentication</strong></p>
+<ul class="task-list">
+<li><p><label><input type="checkbox" />Passwords use Argon2id.</label></p></li>
+<li><p><label><input type="checkbox" />Passwords are never stored in plaintext.</label></p></li>
+<li><p><label><input type="checkbox" />HTTPS is required.</label></p></li>
+<li><p><label><input type="checkbox" />Login attempts are rate-limited.</label></p></li>
+<li><p><label><input type="checkbox" />Administrative accounts support stronger authentication.</label></p></li>
+</ul>
+<p><strong>Authorization</strong></p>
+<ul class="task-list">
+<li><p><label><input type="checkbox" />Access is denied by default.</label></p></li>
+<li><p><label><input type="checkbox" />Every protected endpoint performs authorization.</label></p></li>
+<li><p><label><input type="checkbox" />Users can only access their own resources.</label></p></li>
+<li><p><label><input type="checkbox" />Administrative functions require administrator privileges.</label></p></li>
+<li><p><label><input type="checkbox" />Roles cannot be modified by clients.</label></p></li>
+</ul>
+<p><strong>Database</strong></p>
+<ul class="task-list">
+<li><p><label><input type="checkbox" />Parameterized queries are used.</label></p></li>
+<li><p><label><input type="checkbox" />Database credentials are protected.</label></p></li>
+<li><p><label><input type="checkbox" />Application database privileges are limited.</label></p></li>
+<li><p><label><input type="checkbox" />Database constraints protect integrity.</label></p></li>
+</ul>
+<p><strong>Sessions</strong></p>
+<ul class="task-list">
+<li><p><label><input type="checkbox" />Session identifiers are unpredictable.</label></p></li>
+<li><p><label><input type="checkbox" />Secure cookies are used.</label></p></li>
+<li><p><label><input type="checkbox" />HttpOnly is enabled.</label></p></li>
+<li><p><label><input type="checkbox" />SameSite is configured.</label></p></li>
+<li><p><label><input type="checkbox" />Sessions expire.</label></p></li>
+<li><p><label><input type="checkbox" />Logout invalidates the session.</label></p></li>
+<li><p><label><input type="checkbox" />Sessions are regenerated after authentication.</label></p></li>
+</ul>
+<p><strong>Input</strong></p>
+<ul class="task-list">
+<li><p><label><input type="checkbox" />User input is validated.</label></p></li>
+<li><p><label><input type="checkbox" />Length limits are enforced.</label></p></li>
+<li><p><label><input type="checkbox" />Numeric ranges are enforced.</label></p></li>
+<li><p><label><input type="checkbox" />Business rules are validated server-side.</label></p></li>
+<li><p><label><input type="checkbox" />Client-provided game statistics are not trusted.</label></p></li>
+</ul>
+<p><strong>Files</strong></p>
+<ul class="task-list">
+<li><p><label><input type="checkbox" />File types are allowlisted.</label></p></li>
+<li><p><label><input type="checkbox" />File size is restricted.</label></p></li>
+<li><p><label><input type="checkbox" />Filenames are generated server-side.</label></p></li>
+<li><p><label><input type="checkbox" />Uploaded content is validated.</label></p></li>
+<li><p><label><input type="checkbox" />Upload directories are protected.</label></p></li>
+</ul>
+<p><strong>Logging</strong></p>
+<ul class="task-list">
+<li><p><label><input type="checkbox" />Authentication failures are logged.</label></p></li>
+<li><p><label><input type="checkbox" />Authorization failures are logged.</label></p></li>
+<li><p><label><input type="checkbox" />Administrative actions are logged.</label></p></li>
+<li><p><label><input type="checkbox" />Logs do not contain passwords or session tokens.</label></p></li>
+<li><p><label><input type="checkbox" />Logs are protected against unauthorized modification.</label></p></li>
+</ul>
+<p><strong>39. Risk Prioritization</strong></p>
+<p>The following risks should receive the highest priority during development:</p>
+<table>
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 26%" />
+<col style="width: 29%" />
+<col style="width: 32%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th><strong>Priority</strong></th>
+<th><strong>Risk</strong></th>
+<th><strong>Potential Impact</strong></th>
+<th><strong>Recommended Control</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Critical</td>
+<td>Account takeover</td>
+<td>Complete account compromise</td>
+<td>Argon2id, HTTPS, secure sessions</td>
+</tr>
+<tr class="even">
+<td>Critical</td>
+<td>Broken access control</td>
+<td>Access to other players’ data</td>
+<td>Server-side authorization</td>
+</tr>
+<tr class="odd">
+<td>High</td>
+<td>Inventory manipulation</td>
+<td>Game integrity compromised</td>
+<td>Server-authoritative logic</td>
+</tr>
+<tr class="even">
+<td>High</td>
+<td>SQL injection</td>
+<td>Database compromise</td>
+<td>Parameterized queries</td>
+</tr>
+<tr class="odd">
+<td>High</td>
+<td>Admin privilege escalation</td>
+<td>Complete system compromise</td>
+<td>RBAC and authorization</td>
+</tr>
+<tr class="even">
+<td>High</td>
+<td>Session hijacking</td>
+<td>Account impersonation</td>
+<td>Secure cookies and TLS</td>
+</tr>
+<tr class="odd">
+<td>Medium</td>
+<td>File upload abuse</td>
+<td>Server compromise</td>
+<td>File validation</td>
+</tr>
+<tr class="even">
+<td>Medium</td>
+<td>Denial of Service</td>
+<td>Application unavailable</td>
+<td>Rate limiting</td>
+</tr>
+<tr class="odd">
+<td>Medium</td>
+<td>Information leakage</td>
+<td>Internal information exposure</td>
+<td>Secure error handling</td>
+</tr>
+<tr class="even">
+<td>Medium</td>
+<td>Vulnerable dependencies</td>
+<td>Exploitation through libraries</td>
+<td>Dependency management</td>
+</tr>
+</tbody>
+</table>
+<p><strong>40. Team Contribution</strong></p>
+<p>For this project, meaningful technical contribution should include participation in the security analysis, threat modeling, architectural design, and preparation of the final documentation.</p>
+<p>Examples of contributions include:</p>
+<ul>
+<li><p>Identifying assets and trust boundaries.</p></li>
+<li><p>Analyzing data flows.</p></li>
+<li><p>Identifying STRIDE threats.</p></li>
+<li><p>Researching OWASP vulnerabilities.</p></li>
+<li><p>Designing authentication controls.</p></li>
+<li><p>Designing authorization mechanisms.</p></li>
+<li><p>Reviewing cryptographic requirements.</p></li>
+<li><p>Designing secure session management.</p></li>
+<li><p>Reviewing input and file validation.</p></li>
+<li><p>Preparing the final report.</p></li>
+<li><p>Reviewing the security requirements and testing plan.</p></li>
+</ul>
+<p>Each team member should document their specific contribution honestly according to the work they actually completed.</p>
+<p><strong>41. Conclusion</strong></p>
+<p>DungeonForge is a relatively simple application from a functional perspective, but its combination of user accounts, persistent character data, inventory management, and customizable monster databases creates several important security requirements.</p>
+<p>The most significant risks involve broken access control, authentication weaknesses, session hijacking, injection attacks, unauthorized game-data manipulation, privilege escalation, and insecure file processing.</p>
+<p>The STRIDE analysis demonstrates that threats can affect every major component of the system. Spoofing can lead to account takeover, tampering can compromise inventory and character data, repudiation can make security investigations difficult, information disclosure can expose private data, denial of service can affect availability, and privilege escalation can allow ordinary users to gain administrative capabilities.</p>
+<p>The proposed secure architecture addresses these risks through defense-in-depth. Authentication should use Argon2id password hashing, while authorization should be enforced on the server using role-based access control and resource ownership checks. Game logic should remain server-authoritative, ensuring that clients cannot manipulate important values such as health, inventory, experience, or currency.</p>
+<p>Secure session management, HTTPS, input validation, parameterized database queries, secure file handling, protected logging, rate limiting, and dependency management provide additional layers of protection.</p>
+<p>Ultimately, security should not be treated as a separate feature added at the end of DungeonForge development. It should be integrated into the requirements, architecture, implementation, testing, deployment, and maintenance processes. By applying these principles from the beginning, DungeonForge can provide its users with a safer and more reliable RPG experience while minimizing the risk of account compromise, data manipulation, and unauthorized access.</p>
+<p><strong>42. References</strong></p>
+<p>OWASP Foundation. <em>OWASP Top 10: 2021</em>. Open Worldwide Application Security Project.</p>
+<p>OWASP Foundation. <em>Password Storage Cheat Sheet</em>. OWASP Cheat Sheet Series.</p>
+<p>OWASP Foundation. <em>Session Management Cheat Sheet</em>. OWASP Cheat Sheet Series.</p>
+<p>OWASP Foundation. <em>File Upload Cheat Sheet</em>. OWASP Cheat Sheet Series.</p>
+<p>OWASP Foundation. <em>Input Validation Cheat Sheet</em>. OWASP Cheat Sheet Series.</p>
+<p>OWASP Foundation. <em>A01:2021 – Broken Access Control</em>. OWASP Top 10.</p>
+<p>OWASP Foundation. <em>A07:2021 – Identification and Authentication Failures</em>. OWASP Top 10.</p>
+<p>OWASP Foundation. <em>A09:2021 – Security Logging and Monitoring Failures</em>. OWASP Top 10.</p>
+</article></main></body></html>

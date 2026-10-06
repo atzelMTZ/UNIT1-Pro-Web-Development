@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Potato Search Prototypes</title>
+    <link rel="stylesheet" href="/app/site.css"><link rel="stylesheet" href="style.css">
+</head>
+
+<body><nav class="topbar"><a href="/app/">Dashboard</a><a href="/app/u1act1/">U1ACT1</a><a href="/app/u1act2/">U1ACT2</a><a href="/app/u1act3/">U1ACT3</a><span class="spacer"></span><span class="tip"><button type="button" aria-describedby="authtip" aria-label="How does the authentication work?">?</button><span id="authtip" role="tooltip"><strong>Authentication: JWT in an HttpOnly cookie.</strong> When you log in, the server checks your password against a scrypt hash and issues a signed JSON Web Token (HS256, expires in 1 hour). It is stored in an HttpOnly, Secure, SameSite=Strict cookie that JavaScript cannot read. Every request to /app/* is verified on the server; without a valid token you are redirected to the login page.</span></span><a href="/api/logout">Log out</a></nav>
+
+    <header>
+        <h1>🥔 Potato Search Prototypes</h1>
+        <p>Explore three different search interfaces using a potato dataset.</p>
+    </header>
+
+    <main>
+
+        <!-- ============================= -->
+        <!-- 1. SIMPLE SEARCH -->
+        <!-- ============================= -->
+        <section id="simple-search-section">
+            <h2>1. Simple Search</h2>
+            <p>Search for a potato by name and click the button or press Enter.</p>
+
+            <form id="simple-search-form">
+
+                <label for="simple-search">
+                    Search potatoes:
+                </label>
+
+                <input
+                    type="text"
+                    id="simple-search"
+                    name="simple-search"
+                    placeholder="Enter a potato name..."
+                >
+
+                <button type="submit">
+                    Search
+                </button>
+
+            </form>
+
+            <div id="simple-results">
+                <!-- Simple search results will appear here -->
+            </div>
+        </section>
+
+
+        <!-- ============================= -->
+        <!-- 2. AUTOCOMPLETE SEARCH -->
+        <!-- ============================= -->
+        <section id="autocomplete-section">
+            <h2>2. Autocomplete Search</h2>
+            <p>Start typing to see potato suggestions.</p>
+
+            <form id="autocomplete-form">
+
+                <label for="autocomplete-search">
+                    Search potatoes:
+                </label>
+
+                <input
+                    type="text"
+                    id="autocomplete-search"
+                    name="autocomplete-search"
+                    placeholder="Start typing a potato name..."
+                    autocomplete="off"
+                >
+
+            </form>
+
+            <div id="autocomplete-results">
+                <!-- Autocomplete suggestions will appear here -->
+            </div>
+        </section>
+
+
+        <!-- ============================= -->
+        <!-- 3. FACETED SEARCH -->
+        <!-- ============================= -->
+        <section id="faceted-section">
+            <h2>3. Faceted Search</h2>
+            <p>Use the filters and sorting options to find potatoes.</p>
+
+            <div class="faceted-layout">
+
+                <!-- FILTERS -->
+                <aside class="filters">
+
+                    <h3>Filters</h3>
+
+                    <form id="filter-form">
+
+                        <fieldset>
+                            <legend>Category</legend>
+
+                            <div>
+                                <input
+                                    type="checkbox"
+                                    id="high-starch"
+                                    name="category"
+                                    value="High Starch"
+                                >
+                                <label for="high-starch">
+                                    High Starch
+                                </label>
+                            </div>
+
+                            <div>
+                                <input
+                                    type="checkbox"
+                                    id="medium-starch"
+                                    name="category"
+                                    value="Medium Starch"
+                                >
+                                <label for="medium-starch">
+                                    Medium Starch
+                                </label>
+                            </div>
+
+                            <div>
+                                <input
+                                    type="checkbox"
+                                    id="low-starch"
+                                    name="category"
+                                    value="Low Starch"
+                                >
+                                <label for="low-starch">
+                                    Low Starch
+                                </label>
+                            </div>
+
+                            <div>
+                                <input
+                                    type="checkbox"
+                                    id="specialty"
+                                    name="category"
+                                    value="Specialty"
+                                >
+                                <label for="specialty">
+                                    Specialty
+                                </label>
+                            </div>
+
+                        </fieldset>
+
+                        <div class="filter-group">
+
+                            <label for="sort-select">
+                                Sort by:
+                            </label>
+
+                            <select id="sort-select" name="sort">
+                                <option value="name-asc">
+                                    Name (A-Z)
+                                </option>
+
+                                <option value="price-asc">
+                                    Price: Low to High
+                                </option>
+
+                                <option value="price-desc">
+                                    Price: High to Low
+                                </option>
+
+                                <option value="rating-desc">
+                                    Rating: High to Low
+                                </option>
+                            </select>
+
+                        </div>
+
+                    </form>
+
+                </aside>
+
+
+                <!-- FACETED RESULTS -->
+                <div class="faceted-results-area">
+
+                    <div class="faceted-search">
+
+                        <label for="faceted-search">
+                            Search:
+                        </label>
+
+                        <input
+                            type="text"
+                            id="faceted-search"
+                            name="faceted-search"
+                            placeholder="Search potatoes..."
+                        >
+
+                    </div>
+
+                    <div id="faceted-results">
+                        <!-- Faceted search results will appear here -->
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <footer>
+        <p>Potato Search Prototypes &copy; 2026</p>
+    </footer>
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,17 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Login</title>
+<style>body{font-family:Arial,sans-serif;background:#f4f4f4;display:grid;place-items:center;min-height:100vh;margin:0}
+main{background:#fff;padding:32px;border-radius:10px;width:min(92%,380px);box-shadow:0 2px 8px rgba(0,0,0,.1)}
+h1{margin-top:0;display:flex;justify-content:space-between;align-items:center}
+label{display:block;font-weight:bold;margin:14px 0 6px}input{width:100%;padding:11px;border:1px solid #bbb;border-radius:6px;font-size:16px}
+input:focus{outline:none;border-color:#5d4037;box-shadow:0 0 0 3px rgba(93,64,55,.2)}
+button.go{margin-top:18px;width:100%;padding:12px;border:none;border-radius:6px;background:#5d4037;color:#fff;font-size:16px;cursor:pointer}button.go:hover{background:#3e2723}
+#msg{color:#b71c1c;min-height:1.4em;margin-top:12px}
+.tip{position:relative;display:inline-block}.tip>button{width:26px;height:26px;border-radius:50%;border:none;background:#8d6e63;color:#fff;font-weight:bold;cursor:help}
+.tip>button:hover,.tip>button:focus{background:#3e2723;outline:2px solid #ffcc80}
+.tip [role=tooltip]{display:none;position:absolute;z-index:10;top:34px;right:0;width:290px;background:#222;color:#fff;font-size:14px;padding:12px;border-radius:8px;font-weight:normal}
+.tip:hover [role=tooltip],.tip:focus-within [role=tooltip]{display:block}</style></head>
+<body><main><h1>Sign in <span class="tip"><button type="button" aria-describedby="authtip" aria-label="How does the authentication work?">?</button><span id="authtip" role="tooltip"><strong>Authentication: JWT in an HttpOnly cookie.</strong> When you log in, the server checks your password against a scrypt hash and issues a signed JSON Web Token (HS256, expires in 1 hour). It is stored in an HttpOnly, Secure, SameSite=Strict cookie that JavaScript cannot read. Every request to /app/* is verified on the server; without a valid token you are redirected to the login page.</span></span></h1>
+<form id="f"><label for="u">Username</label><input id="u" name="username" autocomplete="username" required maxlength="64">
+<label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required maxlength="128">
+<button class="go" type="submit">Log in</button><p id="msg" role="alert"></p></form></main>
+<script src="/login.js"></script></body></html>
